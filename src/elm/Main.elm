@@ -33,6 +33,7 @@ view model =
                 ]
             ]
         , hr [] []
+        , showError model.errorMessage
         , div [ class "columns" ]
             [ div [ class "is-half" ]
                 [ createTable model.repos
@@ -52,6 +53,14 @@ createForm model =
             [ input [ type_ "submit", value "Submit", class "button is-primary" ] []
             ]
         ]
+
+showError : Maybe String -> Html Msg
+showError err =
+    case err of
+        Just err -> 
+            div [class "notification is-danger"] [text err]
+        Nothing ->
+            div [] []
 
 
 createTable : List String -> Html Msg
@@ -88,10 +97,10 @@ update msg model =
                 ( model, cmd )
 
         RepositoriesResponse (Ok repos) ->
-            ( { model | repos = repos }, Cmd.none )
+            ( { model | repos = repos, errorMessage = Nothing }, Cmd.none )
 
         RepositoriesResponse (Err err) ->
-            ( { model | errorMessage = Just (toString err) }, Cmd.none )
+            ( { model | errorMessage = Just (toString err), repos = [] }, Cmd.none )
 
 
 decodeRepos : Json.Decode.Decoder (List String)
