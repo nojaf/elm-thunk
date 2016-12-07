@@ -1,62 +1,120 @@
+module Main exposing (..)
+
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing ( onClick )
+import Html.Events exposing (..)
+import Http
+import Json.Decode
 
--- component import example
-import Components.Hello exposing ( hello )
-
-
--- APP
-main : Program Never Int Msg
-main =
-  Html.beginnerProgram { model = model, view = view, update = update }
-
-
--- MODEL
-type alias Model = Int
-
-model : number
-model = 0
+type alias Model =
+    { userName : String
+    , repos : List String
+    , errorMessage : Maybe String
+    }
 
 
--- UPDATE
-type Msg = NoOp | Increment
-
-update : Msg -> Model -> Model
-update msg model =
-  case msg of
-    NoOp -> model
-    Increment -> model + 1
+init : ( Model, Cmd Msg )
+init =
+    ( (Model "" [] Nothing), Cmd.none )
 
 
--- VIEW
--- Html is defined as: elem [ attribs ][ children ]
--- CSS can be applied via class names or inline style attrib
+type Msg
+    = ChangeUserName String
+    | LoadRepositories
+    | RepositoriesResponse (Result Http.Error (List String))
+
+
 view : Model -> Html Msg
 view model =
-  div [ class "container", style [("margin-top", "30px"), ( "text-align", "center" )] ][    -- inline CSS (literal)
-    div [ class "row" ][
-      div [ class "col-xs-12" ][
-        div [ class "jumbotron" ][
-          img [ src "static/img/elm.jpg", style styles.img ] []                             -- inline CSS (via var)
-          , hello model                                                                     -- ext 'hello' component (takes 'model' as arg)
-          , p [] [ text ( "Elm Webpack Starter" ) ]
-          , button [ class "btn btn-primary btn-lg", onClick Increment ] [                  -- click handler
-            span[ class "glyphicon glyphicon-star" ][]                                      -- glyphicon
-            , span[][ text "FTW!" ]
-          ]
+    div [ class "container" ]
+        [ div [ class "columns" ]
+            [ div [ class "is-one-third" ]
+                [ createForm model
+                ]
+            ]
+        , hr [] []
+        , div [ class "columns" ]
+            [ div [ class "is-half" ]
+                [ createTable model.repos
+                ]
+            ]
         ]
-      ]
-    ]
-  ]
 
 
--- CSS STYLES
-styles : { img : List ( String, String ) }
-styles =
-  {
-    img =
-      [ ( "width", "33%" )
-      , ( "border", "4px solid #337AB7")
-      ]
-  }
+createForm : Model -> Html Msg
+createForm model =
+    Html.form [ onSubmit LoadRepositories ]
+        [ label [ class "label" ] [ text "github user" ]
+        , p [ class "control" ]
+            [ input [ class "input", type_ "text", value model.userName, onInput ChangeUserName ] []
+            ]
+        , p [ class "control" ]
+            [ input [ type_ "submit", value "Submit", class "button is-primary" ] []
+            ]
+        ]
+
+
+createTable : List String -> Html Msg
+createTable repos =
+    table [ class "table" ]
+        [ thead []
+            [ th [] [ text "Repository" ]
+            ]
+        , tbody [] (List.map createRow repos)
+        ]
+
+
+createRow : String -> Html Msg
+createRow repo =
+    tr []
+        [ td [] [ text repo ]
+        ]
+
+
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+    case msg of
+        ChangeUserName name ->
+            ( { model | userName = name }, Cmd.none )
+
+        LoadRepositories ->
+            let
+                request =
+                    Http.get (getUrl model.userName) decodeRepos
+
+                cmd =
+                    Http.send RepositoriesResponse <| request
+            in
+                ( model, cmd )
+
+        RepositoriesResponse (Ok repos) ->
+            ( { model | repos = repos }, Cmd.none )
+
+        RepositoriesResponse (Err err) ->
+            ( { model | errorMessage = Just (toString err) }, Cmd.none )
+
+
+decodeRepos : Json.Decode.Decoder (List String)
+decodeRepos =
+    Json.Decode.at [ "full_name" ] Json.Decode.string
+        |> Json.Decode.list
+
+
+getUrl : String -> String
+getUrl userName =
+    "https://api.github.com/users/" ++ userName ++ "/repos"
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    Sub.none
+
+
+main : Program Never Model Msg
+main =
+    program
+        { init = init
+        , view = view
+        , update = update
+        , subscriptions = subscriptions
+        }
