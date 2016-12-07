@@ -10,7 +10,7 @@
   },
   "scripts": {
     "start": "webpack-dev-server --hot --inline --content-base src/",
-    "build": "rimraf dist && webpack",
+    "build": "rimraf docs && webpack",
     "reinstall": "npm i rimraf && rimraf node_modules && npm uninstall -g elm && npm i -g elm && npm i && elm package install"
   },
   "devDependencies": {
